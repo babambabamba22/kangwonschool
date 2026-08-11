@@ -683,8 +683,22 @@ function avatarStyle(seed){
   return `conic-gradient(from ${h}deg,#FF6B6B,#FFB24D,#FFE86B,#54D6A0,#48A9F8,#8C7BFF,#FF6B6B)`;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   담벼락 저장소 설정  ★ 여기만 고치면 됩니다 ★
+
+   함께 만든 '담벼락_저장서버_코드.gs'를 구글 앱스 스크립트에 올리고
+   받은 웹 앱 주소를 아래 따옴표 안에 붙여넣으세요.
+
+   예) const WALL_API = "https://script.google.com/macros/s/AKfy..../exec";
+
+   비워 두면 글이 이 브라우저에만 남고 다른 분에게는 보이지 않습니다.
+   ═══════════════════════════════════════════════════════════ */
+const WALL_API = "https://script.google.com/macros/s/AKfycbz0bo5xWLbiZucX-baKfKgzPtPTTwaSSAmHmr_cfgaQmfNOkeY2O6m4H19nZjG8XIH0ZQ/exec";
+
 /* ───────── 담벼락 ───────── */
 const WALL_KEY  = 'kws:wall:v1';
+const MODE = WALL_API ? 'api'
+           : (typeof window.storage !== 'undefined' ? 'artifact' : 'local');
 const wallEl    = document.getElementById('wall');
 const textIn    = document.getElementById('textInput');
 const nickIn    = document.getElementById('nickInput');
@@ -695,8 +709,49 @@ const myAvatar  = document.getElementById('myAvatar');
 const refreshBtn= document.getElementById('refreshBtn');
 const hintEl    = document.querySelector('.hint');
 
-let posts = [], mine = new Set(), liked = new Set(), storageOK = true;
-myAvatar.style.background = avatarStyle('me' + Math.random());
+let posts = [], mine = new Set(), liked = new Set(), tokens = {}, online = true;
+
+/* 브라우저에 남겨 두는 개인 정보 — 이름, 내 글 표시, 공감 표시 */
+const LS = {
+  get(k, d){ try{ return JSON.parse(localStorage.getItem('kws:'+k)) ?? d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('kws:'+k, JSON.stringify(v)); }catch(e){} }
+};
+mine   = new Set(LS.get('mine', []));
+liked  = new Set(LS.get('liked', []));
+tokens = LS.get('tokens', {});
+nickIn.value = LS.get('nick', '') || '';
+myAvatar.style.background = avatarStyle('me' + (nickIn.value || Math.random()));
+nickIn.addEventListener('input', ()=>{
+  LS.set('nick', nickIn.value.trim());
+  myAvatar.style.background = avatarStyle('me' + (nickIn.value || 'x'));
+});
+
+function rememberMine(id, token){
+  mine.add(id); tokens[id] = token;
+  LS.set('mine', [...mine].slice(-80));
+  LS.set('tokens', tokens);
+}
+
+/* 저장 서버 호출 */
+async function api(action, payload){
+  const res = await fetch(WALL_API, {           // 헤더를 붙이지 않아야 사전 요청 없이 통과합니다
+    method:'POST',
+    body: JSON.stringify(Object.assign({action}, payload))
+  });
+  return res.json();
+}
+
+function setHint(){
+  if(MODE === 'api'){
+    hintEl.textContent = online
+      ? '남긴 글은 이 페이지에 오는 모든 분에게 보입니다.'
+      : '저장 서버에 연결하지 못했습니다. 웹 앱 주소와 배포 설정을 확인해 주세요.';
+  }else if(MODE === 'artifact'){
+    hintEl.textContent = '남긴 글은 이 페이지에 오는 모든 분에게 보입니다.';
+  }else{
+    hintEl.textContent = '저장 주소가 아직 연결되지 않아 이 브라우저에만 남습니다.';
+  }
+}
 
 function timeAgo(ts){
   const s = Math.floor((Date.now() - ts)/1000);
@@ -708,18 +763,32 @@ function timeAgo(ts){
 }
 
 async function loadPosts(){
-  try{
-    const r = await window.storage.get(WALL_KEY, true);
-    posts = r && r.value ? JSON.parse(r.value) : [];
-  }catch(e){ posts = []; }
+  if(MODE === 'api'){
+    try{
+      const r = await fetch(WALL_API + '?t=' + Date.now(), {cache:'no-store'});
+      const d = await r.json();
+      posts = Array.isArray(d.posts) ? d.posts : [];
+      online = true;
+    }catch(e){ online = false; }
+  }else if(MODE === 'artifact'){
+    try{
+      const r = await window.storage.get(WALL_KEY, true);
+      posts = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ posts = []; }
+  }else{
+    posts = LS.get('wall', []);
+  }
   if(!Array.isArray(posts)) posts = [];
+  setHint();
 }
 
+/* API 모드에서는 서버가 보관하므로 아래는 쓰이지 않습니다 */
 async function savePosts(){
-  try{ await window.storage.set(WALL_KEY, JSON.stringify(posts.slice(0,150)), true); }
-  catch(e){
-    storageOK = false;
-    hintEl.textContent = '지금은 저장이 되지 않아 이 화면에서만 보입니다.';
+  if(MODE === 'api') return;
+  if(MODE === 'artifact'){
+    try{ await window.storage.set(WALL_KEY, JSON.stringify(posts.slice(0,150)), true); }catch(e){}
+  }else{
+    LS.set('wall', posts.slice(0,150));
   }
 }
 
@@ -755,14 +824,20 @@ function render(){
     el.querySelector('.post-body').textContent = p.text;
 
     el.querySelector('.like').onclick = async ()=>{
-      if(liked.has(p.id)){ liked.delete(p.id); p.likes = Math.max(0,(p.likes||0)-1); }
+      const off = liked.has(p.id);
+      if(off){ liked.delete(p.id); p.likes = Math.max(0,(p.likes||0)-1); }
       else { liked.add(p.id); p.likes = (p.likes||0)+1; }
-      render(); await savePosts();
+      LS.set('liked', [...liked].slice(-200));
+      render();
+      if(MODE === 'api'){ try{ await api('like', {id:p.id, delta: off ? -1 : 1}); }catch(e){} }
+      else await savePosts();
     };
     const del = el.querySelector('.del');
     if(del) del.onclick = async ()=>{
       posts = posts.filter(x => x.id !== p.id);
-      render(); await savePosts();
+      render();
+      if(MODE === 'api'){ try{ await api('delete', {id:p.id, token: tokens[p.id] || ''}); }catch(e){} }
+      else await savePosts();
     };
     wallEl.appendChild(el);
   });
@@ -791,18 +866,46 @@ refreshBtn.addEventListener('click', async ()=>{
 async function submit(){
   const text = textIn.value.trim();
   if(!text) return;
-  const name = (nickIn.value.trim() || '이름 없는 선생님').slice(0,12);
-  const post = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
-                 name, text, ts: Date.now(), likes: 0 };
-  await loadPosts();                    // 그 사이 다른 분이 남긴 글까지 함께 보관
-  posts.unshift(post);
-  mine.add(post.id);
-  textIn.value = ''; syncBtn(); render();
-  await savePosts();
+  const name  = (nickIn.value.trim() || '이름 없는 선생님').slice(0,12);
+  const token = Math.random().toString(36).slice(2,10);
+  const post  = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+                  name, text, ts: Date.now(), likes: 0 };
+
+  postBtn.disabled = true;
+  const draft = textIn.value;
+  textIn.value = ''; syncBtn();
+  posts.unshift(post); rememberMine(post.id, token); render();
+
+  if(MODE === 'api'){
+    try{
+      const r = await api('add', Object.assign({token}, post));
+      if(!r || r.ok !== true) throw new Error('저장 실패');
+      online = true;
+      await loadPosts(); render();
+    }catch(e){
+      online = false; setHint();
+      posts = posts.filter(x => x.id !== post.id);
+      textIn.value = draft; syncBtn(); render();
+    }
+  }else{
+    const keep = posts;
+    await loadPosts();
+    posts = keep;                       // 그 사이 다른 분이 남긴 글까지 함께 보관
+    await savePosts();
+    render();
+  }
 }
 
 (async function init(){
+  setHint();
   await loadPosts(); render(); syncBtn();
+
+  if(MODE === 'api'){                   // 다른 분이 남긴 글을 조용히 받아옵니다
+    setInterval(async ()=>{
+      if(document.hidden || document.activeElement === textIn) return;
+      await loadPosts(); render();
+    }, 25000);
+  }
 })();
 
 /* ───────── 검색 ───────── */
