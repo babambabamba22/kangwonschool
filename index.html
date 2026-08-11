@@ -367,14 +367,9 @@
     flex:0 0 26px;height:26px;border-radius:8px;display:grid;place-items:center;
     background:var(--blue-soft);color:var(--blue);font-size:12.5px;font-weight:800;
   }
-  .link.key .n{background:#FFF3D6;color:#B8791A;}
   .link .txt{min-width:0;}
   .link .txt h3{margin:0;font-size:15px;font-weight:700;letter-spacing:-.025em;}
   .link .txt p{margin:3px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5;}
-  .link .txt .tag{
-    display:inline-block;margin-top:7px;font-size:11.5px;font-weight:700;
-    color:#B8791A;background:#FFF3D6;border-radius:5px;padding:1px 7px;
-  }
 
   /* ───────── 푸터 ───────── */
   .foot{
@@ -595,8 +590,8 @@
           <a class="rail-item" href="https://babambabamba22.github.io/Example/" target="_blank" rel="noopener">
             <div class="t">완성된 평가자료 생성기를 먼저 써보세요</div><div class="d">연수 자료 3</div>
           </a>
-          <a class="rail-item" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">
-            <div class="t">실습 전, API 키를 먼저 발급받으세요</div><div class="d">자료실 5번</div>
+          <a class="rail-item" href="https://ncic.re.kr/index.do" target="_blank" rel="noopener">
+            <div class="t">교육과정 원문은 정보센터에서 확인하세요</div><div class="d">자료실 5번</div>
           </a>
         </div>
       </section>
@@ -619,7 +614,7 @@ const LINKS = [
   {t:"제미나이",              d:"평가자료 생성기(젬)를 실행하는 곳",        u:"https://gemini.google.com/app?hl=ko"},
   {t:"수행평가지 예시자료",   d:"연수에서 함께 본 예시 파일 모음",          u:"https://drive.google.com/drive/folders/1ZsDfP5q0vz7OIFmLfDv_2T6rcQQsOu0w?usp=drive_link"},
   {t:"2022 개정 성취기준",    d:"학생평가지원포털에서 성취기준 확인",       u:"https://stas.moe.go.kr/cmn/main"},
-  {t:"구글 AI 스튜디오",      d:"실습에 필요한 API 키를 발급받는 곳",       u:"https://aistudio.google.com/app/apikey", tag:"API KEY"},
+  {t:"국가교육과정 정보센터", d:"교육과정 원문과 성취기준을 찾아보는 곳",   u:"https://ncic.re.kr/index.do"},
   {t:"교사용 지도서 PDF",     d:"아이스크림 교과서 · 2022 개정",            u:"https://text.i-scream.co.kr/user/introduce/introduceMain.do?revisionYear=2022"},
   {t:"김킷",                  d:"게임형 퀴즈로 형성평가 진행",              u:"https://www.gimkit.com/"},
   {t:"액티브 아케이드",       d:"몸을 움직이는 활동형 수업 도구",           u:"https://www.activearcade.ai/"},
@@ -633,17 +628,12 @@ const railQuick= document.getElementById('railQuick');
 
 LINKS.forEach((l,i)=>{
   const a = document.createElement('a');
-  a.className = 'link' + (l.tag ? ' key' : '');
+  a.className = 'link';
   a.href = l.u; a.target = '_blank'; a.rel = 'noopener';
   a.style.animationDelay = (0.03 * i) + 's';
   a.innerHTML = `<span class="n">${i+1}</span><span class="txt"><h3></h3><p></p></span>`;
   a.querySelector('h3').textContent = l.t;
   a.querySelector('p').textContent = l.d;
-  if(l.tag){
-    const tg = document.createElement('span');
-    tg.className = 'tag'; tg.textContent = l.tag;
-    a.querySelector('.txt').appendChild(tg);
-  }
   linksEl.appendChild(a);
 
   const s = document.createElement('a');
@@ -683,22 +673,8 @@ function avatarStyle(seed){
   return `conic-gradient(from ${h}deg,#FF6B6B,#FFB24D,#FFE86B,#54D6A0,#48A9F8,#8C7BFF,#FF6B6B)`;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   담벼락 저장소 설정  ★ 여기만 고치면 됩니다 ★
-
-   함께 만든 '담벼락_저장서버_코드.gs'를 구글 앱스 스크립트에 올리고
-   받은 웹 앱 주소를 아래 따옴표 안에 붙여넣으세요.
-
-   예) const WALL_API = "https://script.google.com/macros/s/AKfy..../exec";
-
-   비워 두면 글이 이 브라우저에만 남고 다른 분에게는 보이지 않습니다.
-   ═══════════════════════════════════════════════════════════ */
-const WALL_API = "https://script.google.com/macros/s/AKfycbz0bo5xWLbiZucX-baKfKgzPtPTTwaSSAmHmr_cfgaQmfNOkeY2O6m4H19nZjG8XIH0ZQ/exec";
-
 /* ───────── 담벼락 ───────── */
 const WALL_KEY  = 'kws:wall:v1';
-const MODE = WALL_API ? 'api'
-           : (typeof window.storage !== 'undefined' ? 'artifact' : 'local');
 const wallEl    = document.getElementById('wall');
 const textIn    = document.getElementById('textInput');
 const nickIn    = document.getElementById('nickInput');
@@ -709,49 +685,8 @@ const myAvatar  = document.getElementById('myAvatar');
 const refreshBtn= document.getElementById('refreshBtn');
 const hintEl    = document.querySelector('.hint');
 
-let posts = [], mine = new Set(), liked = new Set(), tokens = {}, online = true;
-
-/* 브라우저에 남겨 두는 개인 정보 — 이름, 내 글 표시, 공감 표시 */
-const LS = {
-  get(k, d){ try{ return JSON.parse(localStorage.getItem('kws:'+k)) ?? d; }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem('kws:'+k, JSON.stringify(v)); }catch(e){} }
-};
-mine   = new Set(LS.get('mine', []));
-liked  = new Set(LS.get('liked', []));
-tokens = LS.get('tokens', {});
-nickIn.value = LS.get('nick', '') || '';
-myAvatar.style.background = avatarStyle('me' + (nickIn.value || Math.random()));
-nickIn.addEventListener('input', ()=>{
-  LS.set('nick', nickIn.value.trim());
-  myAvatar.style.background = avatarStyle('me' + (nickIn.value || 'x'));
-});
-
-function rememberMine(id, token){
-  mine.add(id); tokens[id] = token;
-  LS.set('mine', [...mine].slice(-80));
-  LS.set('tokens', tokens);
-}
-
-/* 저장 서버 호출 */
-async function api(action, payload){
-  const res = await fetch(WALL_API, {           // 헤더를 붙이지 않아야 사전 요청 없이 통과합니다
-    method:'POST',
-    body: JSON.stringify(Object.assign({action}, payload))
-  });
-  return res.json();
-}
-
-function setHint(){
-  if(MODE === 'api'){
-    hintEl.textContent = online
-      ? '남긴 글은 이 페이지에 오는 모든 분에게 보입니다.'
-      : '저장 서버에 연결하지 못했습니다. 웹 앱 주소와 배포 설정을 확인해 주세요.';
-  }else if(MODE === 'artifact'){
-    hintEl.textContent = '남긴 글은 이 페이지에 오는 모든 분에게 보입니다.';
-  }else{
-    hintEl.textContent = '저장 주소가 아직 연결되지 않아 이 브라우저에만 남습니다.';
-  }
-}
+let posts = [], mine = new Set(), liked = new Set(), storageOK = true;
+myAvatar.style.background = avatarStyle('me' + Math.random());
 
 function timeAgo(ts){
   const s = Math.floor((Date.now() - ts)/1000);
@@ -763,32 +698,18 @@ function timeAgo(ts){
 }
 
 async function loadPosts(){
-  if(MODE === 'api'){
-    try{
-      const r = await fetch(WALL_API + '?t=' + Date.now(), {cache:'no-store'});
-      const d = await r.json();
-      posts = Array.isArray(d.posts) ? d.posts : [];
-      online = true;
-    }catch(e){ online = false; }
-  }else if(MODE === 'artifact'){
-    try{
-      const r = await window.storage.get(WALL_KEY, true);
-      posts = r && r.value ? JSON.parse(r.value) : [];
-    }catch(e){ posts = []; }
-  }else{
-    posts = LS.get('wall', []);
-  }
+  try{
+    const r = await window.storage.get(WALL_KEY, true);
+    posts = r && r.value ? JSON.parse(r.value) : [];
+  }catch(e){ posts = []; }
   if(!Array.isArray(posts)) posts = [];
-  setHint();
 }
 
-/* API 모드에서는 서버가 보관하므로 아래는 쓰이지 않습니다 */
 async function savePosts(){
-  if(MODE === 'api') return;
-  if(MODE === 'artifact'){
-    try{ await window.storage.set(WALL_KEY, JSON.stringify(posts.slice(0,150)), true); }catch(e){}
-  }else{
-    LS.set('wall', posts.slice(0,150));
+  try{ await window.storage.set(WALL_KEY, JSON.stringify(posts.slice(0,150)), true); }
+  catch(e){
+    storageOK = false;
+    hintEl.textContent = '지금은 저장이 되지 않아 이 화면에서만 보입니다.';
   }
 }
 
@@ -824,20 +745,14 @@ function render(){
     el.querySelector('.post-body').textContent = p.text;
 
     el.querySelector('.like').onclick = async ()=>{
-      const off = liked.has(p.id);
-      if(off){ liked.delete(p.id); p.likes = Math.max(0,(p.likes||0)-1); }
+      if(liked.has(p.id)){ liked.delete(p.id); p.likes = Math.max(0,(p.likes||0)-1); }
       else { liked.add(p.id); p.likes = (p.likes||0)+1; }
-      LS.set('liked', [...liked].slice(-200));
-      render();
-      if(MODE === 'api'){ try{ await api('like', {id:p.id, delta: off ? -1 : 1}); }catch(e){} }
-      else await savePosts();
+      render(); await savePosts();
     };
     const del = el.querySelector('.del');
     if(del) del.onclick = async ()=>{
       posts = posts.filter(x => x.id !== p.id);
-      render();
-      if(MODE === 'api'){ try{ await api('delete', {id:p.id, token: tokens[p.id] || ''}); }catch(e){} }
-      else await savePosts();
+      render(); await savePosts();
     };
     wallEl.appendChild(el);
   });
@@ -866,46 +781,18 @@ refreshBtn.addEventListener('click', async ()=>{
 async function submit(){
   const text = textIn.value.trim();
   if(!text) return;
-  const name  = (nickIn.value.trim() || '이름 없는 선생님').slice(0,12);
-  const token = Math.random().toString(36).slice(2,10);
-  const post  = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
-                  name, text, ts: Date.now(), likes: 0 };
-
-  postBtn.disabled = true;
-  const draft = textIn.value;
-  textIn.value = ''; syncBtn();
-  posts.unshift(post); rememberMine(post.id, token); render();
-
-  if(MODE === 'api'){
-    try{
-      const r = await api('add', Object.assign({token}, post));
-      if(!r || r.ok !== true) throw new Error('저장 실패');
-      online = true;
-      await loadPosts(); render();
-    }catch(e){
-      online = false; setHint();
-      posts = posts.filter(x => x.id !== post.id);
-      textIn.value = draft; syncBtn(); render();
-    }
-  }else{
-    const keep = posts;
-    await loadPosts();
-    posts = keep;                       // 그 사이 다른 분이 남긴 글까지 함께 보관
-    await savePosts();
-    render();
-  }
+  const name = (nickIn.value.trim() || '이름 없는 선생님').slice(0,12);
+  const post = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+                 name, text, ts: Date.now(), likes: 0 };
+  await loadPosts();                    // 그 사이 다른 분이 남긴 글까지 함께 보관
+  posts.unshift(post);
+  mine.add(post.id);
+  textIn.value = ''; syncBtn(); render();
+  await savePosts();
 }
 
 (async function init(){
-  setHint();
   await loadPosts(); render(); syncBtn();
-
-  if(MODE === 'api'){                   // 다른 분이 남긴 글을 조용히 받아옵니다
-    setInterval(async ()=>{
-      if(document.hidden || document.activeElement === textIn) return;
-      await loadPosts(); render();
-    }, 25000);
-  }
 })();
 
 /* ───────── 검색 ───────── */
@@ -913,7 +800,7 @@ document.getElementById('topSearch').addEventListener('keydown', e=>{
   if(e.key !== 'Enter') return;
   const q = e.target.value.trim().toLowerCase();
   if(!q) return;
-  const hit = LINKS.find(l => l.t.toLowerCase().includes(q) || (l.tag||'').toLowerCase().includes(q));
+  const hit = LINKS.find(l => l.t.toLowerCase().includes(q));
   if(hit) window.open(hit.u,'_blank','noopener');
   else go('archive');
 });
